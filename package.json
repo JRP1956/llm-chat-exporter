@@ -1,0 +1,33 @@
+{
+  "name": "chat-export",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "dev": "NODE_ENV=development webpack --watch",
+    "build": "NODE_ENV=production webpack",
+    "test": "jest",
+    "lint": "eslint src/",
+    "zip": "npm run build && cd dist && zip -r ../llm-chat-exporter.zip ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "babel-jest": "^30.4.1",
+    "babel-loader": "^10.1.1",
+    "copy-webpack-plugin": "^14.0.0",
+    "css-loader": "^7.1.4",
+    "eslint": "^10.4.1",
+    "jest": "^30.4.2",
+    "prettier": "^3.8.3",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.107.2",
+    "webpack-cli": "^7.0.3"
+  }
+}

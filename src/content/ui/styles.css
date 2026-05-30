@@ -1,0 +1,56 @@
+#llm-exporter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  background-color: #3b82f6;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  z-index: 9999;
+}
+
+#llm-exporter-btn:hover {
+  background-color: #2563eb;
+}
+
+#llm-exporter-btn:active {
+  transform: scale(0.96);
+}
+
+#llm-exporter-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  background-color: #1f2937;
+  color: #f9fafb;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 10000;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+
+#llm-exporter-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#llm-exporter-toast.success {
+  background-color: #059669;
+}
+
+#llm-exporter-toast.error {
+  background-color: #dc2626;
+}

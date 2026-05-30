@@ -1,0 +1,38 @@
+{
+  "title": "Sorting Algorithms Request",
+  "current_node": "node2",
+  "mapping": {
+    "node1": {
+      "id": "node1",
+      "message": {
+        "author": { "role": "user" },
+        "create_time": 1717065000,
+        "content": {
+          "content_type": "text",
+          "parts": ["Can you create a comparison table of sorting algorithms?"]
+        }
+      },
+      "parent": "root"
+    },
+    "node2": {
+      "id": "node2",
+      "message": {
+        "author": { "role": "assistant" },
+        "create_time": 1717065005,
+        "content": {
+          "content_type": "text",
+          "parts": ["Here is the comparison table..."]
+        },
+        "metadata": {
+          "model_slug": "gpt-4o"
+        }
+      },
+      "parent": "node1"
+    },
+    "root": {
+      "id": "root",
+      "message": null,
+      "parent": null
+    }
+  }
+}

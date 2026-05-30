@@ -1,0 +1,26 @@
+{
+  "name": "Sorting Algorithms Request",
+  "created_at": "2026-05-30T10:30:00Z",
+  "chat_messages": [
+    {
+      "sender": "human",
+      "text": "Can you create a comparison table of sorting algorithms?",
+      "created_at": "2026-05-30T10:30:00Z"
+    },
+    {
+      "sender": "assistant",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "The user wants a comparison table of sorting algorithms. I should cover the most common ones — bubble, quick, merge, heap, insertion — and include time complexity, space complexity, and stability..."
+        },
+        {
+          "type": "text",
+          "text": "Here's a comprehensive comparison table of sorting algorithms:\\n\\n| Algorithm   | Best Case  | Average Case | Worst Case | Space    | Stable |\\n| ----------- | ---------- | ------------ | ---------- | -------- | ------ |\\n| Bubble Sort | O(n)       | O(n²)        | O(n²)      | O(1)     | Yes    |\\n| Quick Sort  | O(n log n) | O(n log n)   | O(n²)      | O(log n) | No     |\\n| Merge Sort  | O(n log n) | O(n log n)   | O(n log n) | O(n)     | Yes    |"
+        }
+      ],
+      "created_at": "2026-05-30T10:30:05Z"
+    }
+  ],
+  "model": "claude-3-5-sonnet-20241022"
+}

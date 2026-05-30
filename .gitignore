@@ -1,0 +1,4 @@
+node_modules/
+dist/
+llm-chat-exporter.zip
+.DS_Store

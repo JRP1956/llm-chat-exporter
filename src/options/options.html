@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LLM Chat Exporter - Options</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 32px 16px;
+      color: #374151;
+    }
+    h1 {
+      margin-bottom: 24px;
+    }
+    .section {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .section h2 {
+      margin-top: 0;
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+    .field {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+    }
+    .field label {
+      margin-left: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn:hover { background: #2563eb; }
+    #save-status {
+      margin-left: 12px;
+      font-size: 14px;
+      color: #059669;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <h1>Extension Settings</h1>
+
+  <div class="section">
+    <h2>Export Options</h2>
+    <div class="field">
+      <input type="checkbox" id="include-thinking">
+      <label for="include-thinking">Include reasoning/thinking blocks (if available)</label>
+    </div>
+    <div class="field">
+      <input type="checkbox" id="include-timestamps">
+      <label for="include-timestamps">Include timestamps</label>
+    </div>
+    <div class="field">
+      <input type="checkbox" id="include-metadata">
+      <label for="include-metadata">Include conversation metadata header</label>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Enabled Platforms</h2>
+    <div class="field">
+      <input type="checkbox" id="plat-claude">
+      <label for="plat-claude">Claude</label>
+    </div>
+    <div class="field">
+      <input type="checkbox" id="plat-chatgpt">
+      <label for="plat-chatgpt">ChatGPT</label>
+    </div>
+  </div>
+
+  <div>
+    <button class="btn" id="save-btn">Save Settings</button>
+    <span id="save-status">Saved!</span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
