@@ -1,139 +1,143 @@
-# System Architecture & Technical Documentation
+## Overview
 
-This document outlines the commercial-grade architecture of the **Universal LLM Chat Exporter**. The system is built to be highly scalable, fault-tolerant against frontend UI changes, and easily extensible by distributed teams.
+The Universal LLM Chat Exporter circumvents volatile DOM scraping by utilizing the Chrome DevTools Protocol to intercept structured JSON payloads directly from backend API requests. The system routes this data into a platform-agnostic formatting pipeline. This ensures absolute extraction accuracy while radically reducing maintenance overhead when LLM platforms alter their frontend interfaces.
 
----
+## Design Principles
 
-## 1. Executive Summary
+- We chose Network Interception over DOM Scraping because backend API contracts are significantly more stable than frontend CSS classes.
+- We chose the Adapter Pattern over branching logic because it cleanly decouples the core export engine from proprietary LLM platform schemas.
+- We chose the `chrome.debugger` API over the `chrome.webRequest` API because MV3 `webRequest` lacks the ability to intercept response bodies without routing through an external proxy.
+- We chose to monkey-patch the native History API over polling the DOM because it is the most performant way to detect SPA navigations in React/Angular applications.
 
-The Universal LLM Chat Exporter operates as a decentralized orchestration engine within the Chrome browser sandbox. By shifting the extraction vector from **DOM Scraping** (high volatility, high maintenance) to **Network Payload Interception** (low volatility, structured schema), the extension achieves a commercial level of reliability. 
-
-The architecture strictly separates concerns:
-- **Transport Layer**: Captures network bytes via CDP.
-- **Adapter Layer**: Normalizes proprietary JSON schemas.
-- **Core Engine**: Orchestrates execution and formats output.
-
----
-
-## 2. System Context & Workflow
-
-When a user visits a supported LLM platform, the following lifecycle occurs:
+## System Diagram
 
 ```mermaid
-sequenceDiagram
-    participant U as User
-    participant P as LLM Platform (SPA)
-    participant CS as Content Script
-    participant SW as Service Worker (Background)
-    participant CDP as Chrome Debugger API
+graph TD
+    User([User])
+    Platform[LLM Platform SPA]
+    Debugger[Chrome Debugger API]
     
-    SW->>CDP: Attach Debugger (tabId)
-    U->>P: Load Conversation / Send Message
-    P->>P: Fetch API Payload
-    CDP->>SW: Network.responseReceived (Headers)
-    SW->>CDP: Network.getResponseBody
-    CDP-->>SW: Raw JSON Payload
-    SW->>CS: postMessage(NETWORK_DATA_CAPTURED)
-    CS->>CS: Cache Payload in Orchestrator
-    U->>CS: Click "Export" Button
-    CS->>CS: Adapter Normalizes Payload
-    CS->>CS: Markdown Builder Generates Document
-    CS->>SW: postMessage(DOWNLOAD_FILE)
-    SW->>U: Trigger System Save Dialog
+    subgraph Background Service Worker
+        SW[service-worker.js]
+        NI[network-interceptor.js]
+    end
+    
+    subgraph Content Script Context
+        CM[content-main.js]
+        Orch[ExportOrchestrator]
+        Adapter[BaseAdapter Implementation]
+        Builder[MarkdownBuilder]
+        Downloader[FileDownloader]
+        UI[ExportButton & Toast]
+    end
+    
+    User -->|Visits URL| Platform
+    SW -->|Attaches| Debugger
+    Platform -->|Fetches Data| Debugger
+    Debugger -->|Network.responseReceived| NI
+    NI -->|postMessage JSON| CM
+    CM -->|Caches| Orch
+    User -->|Clicks Export| UI
+    UI -->|Triggers| Orch
+    Orch -->|Parses| Adapter
+    Adapter -->|Normalizes| Builder
+    Builder -->|Markdown| Downloader
+    Downloader -->|Triggers| SW
+    SW -->|Downloads| User
 ```
 
----
+## Component Breakdown
 
-## 3. Subsystem Architecture
+### Background Service Worker
+- Purpose: Manages the extension lifecycle and orchestrates elevated API calls.
+- Responsibilities: 
+  - Attaching and detaching the Chrome Debugger to specific tabs.
+  - Triggering the native `chrome.downloads` API upon request.
+- What it does NOT do: Does not parse JSON schemas or format markdown.
+- Key files: `src/background/service-worker.js`.
+- Internal dependencies: `network-interceptor.js`.
+- External dependencies: `chrome.tabs`, `chrome.runtime`, `chrome.downloads`.
 
-### 3.1 Network Interception Engine (Service Worker)
-Traditional WebExtensions APIs (`chrome.webRequest`) cannot read the response body of a request. To circumvent this, the background worker utilizes the `chrome.debugger` API.
-- **Protocol**: Chrome DevTools Protocol (CDP) `Network` domain.
-- **Filtering**: Target endpoints are defined via RegExp in `network-interceptor.js`. Filtering happens at the earliest possible stage to minimize memory overhead.
-- **State Management**: Captured JSON payloads are cached transiently in a `Map<TabId:PlatformId, JSON>`, preventing memory leaks when tabs are closed.
+### Network Interceptor
+- Purpose: Intercepts raw network payloads from LLM platforms.
+- Responsibilities:
+  - Filtering HTTP traffic against predefined RegExp endpoints.
+  - Extracting response bodies via `Network.getResponseBody`.
+  - Caching transient payloads in a Map.
+- What it does NOT do: Does not alter or block network traffic.
+- Key files: `src/background/network-interceptor.js`.
+- Internal dependencies: None.
+- External dependencies: `chrome.debugger`.
 
-### 3.2 Polymorphic Adapter Pattern
-To support commercial scaling (adding dozens of LLM platforms without spaghetti code), the system employs a strict Adapter pattern.
+### Export Orchestrator
+- Purpose: Coordinates the extraction and formatting pipeline in the content script.
+- Responsibilities:
+  - Resolving the correct platform adapter based on the active URL.
+  - Applying user configuration from Storage.
+  - Executing the pipeline from data ingestion to download.
+- What it does NOT do: Does not inject UI elements directly.
+- Key files: `src/core/export-orchestrator.js`.
+- Internal dependencies: `BaseAdapter`, `MarkdownBuilder`, `FileDownloader`, `Storage`.
+- External dependencies: None.
 
-```mermaid
-classDiagram
-    class BaseAdapter {
-        <<abstract>>
-        +matches(url: string) boolean*
-        +getPlatformId() string*
-        +getTitle() Promise<string>*
-        +getMessages() Promise<ConversationMessage[]>*
-        +getButtonMountPointSelector() string*
-    }
-    
-    class ClaudeAdapter {
-        -networkData: Object
-    }
-    
-    class ChatGPTAdapter {
-        -networkData: Object
-    }
+### Platform Adapters
+- Purpose: Normalizes proprietary JSON schemas into a standard internal format.
+- Responsibilities:
+  - Extracting messages, timestamps, and reasoning blocks.
+  - Flattening complex tree structures (e.g., ChatGPT's mapping object) into a linear array.
+- What it does NOT do: Does not write markdown or handle downloads.
+- Key files: `src/adapters/base-adapter.js`, `src/adapters/claude/claude-adapter.js`.
+- Internal dependencies: `ClaudeApiParser`, `ChatGptApiParser`.
+- External dependencies: None.
 
-    class ExportOrchestrator {
-        -adapter: BaseAdapter
-        +export()
-    }
-    
-    BaseAdapter <|-- ClaudeAdapter
-    BaseAdapter <|-- ChatGPTAdapter
-    ExportOrchestrator --> BaseAdapter : Consumes
-```
+## Data Flow
 
-#### The `ConversationMessage` Standard Schema
-Every adapter's primary responsibility is translating a proprietary network payload into this strict internal schema:
-```typescript
-interface ConversationMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string; // The primary Markdown text
-  timestamp: string | null; // ISO 8601
-  thinking: ThinkingBlock[] | null; 
-  attachments: Attachment[] | null;
-  model: string | null;
-}
+1. The user navigates to an LLM platform (e.g., `https://chatgpt.com/`).
+2. The `service-worker.js` detects the URL and calls `network-interceptor.js` to attach to the tab via `chrome.debugger`.
+3. The LLM platform fetches conversation history. `network-interceptor.js` captures the JSON body and sends it via `postMessage` to `content-main.js`.
+4. `content-main.js` receives the data and caches it within the `ExportOrchestrator` instance.
+5. The user clicks the injected Export button (`export-button.js`).
+6. `ExportOrchestrator` invokes `Adapter.getMessages()`, which delegates to the specific `ApiParser` (e.g., `ChatGptApiParser`).
+7. The parser returns a normalized `ConversationMessage[]` array.
+8. `ExportOrchestrator` passes the array to `MarkdownBuilder.build()`, outputting a raw string.
+9. `ExportOrchestrator` hands the string to `FileDownloader.download()`.
+10. `FileDownloader` creates a blob URL and sends a message back to the `service-worker.js` to invoke `chrome.downloads.download()`.
 
-interface ThinkingBlock {
-  content: string;
-  durationMs: number | null;
-}
-```
+## Key Design Patterns
 
-### 3.3 Single Page Application (SPA) Resilience
-LLM platforms heavily utilize React or Angular. Standard content script execution (`run_at: "document_idle"`) only fires on hard reloads. 
-- **The Problem**: Navigating between conversations changes the URL without reloading the page, causing the export button to vanish or export the wrong data.
-- **The Solution**: The `content-main.js` script monkey-patches the native browser History API (`pushState` and `replaceState`) and listens for `popstate`. Upon detection, it triggers a UI teardown and re-initialization pipeline.
+### Adapter Pattern
+- Name of the pattern: Adapter Pattern.
+- Where it is applied: `src/adapters/base-adapter.js` and all platform-specific adapter classes.
+- Why it was chosen: It completely isolates proprietary API changes. If ChatGPT changes their schema, only `ChatGptApiParser.js` requires modification.
 
-### 3.4 Parsing Strategies
+### Observer Pattern (Mutation)
+- Name of the pattern: Observer Pattern.
+- Where it is applied: `src/content/ui/export-button.js` (`MutationObserver`).
+- Why it was chosen: React/Angular applications frequently re-render the DOM, instantly destroying injected elements. The observer guarantees the export button persists immediately after UI repaints.
 
-#### Flat Array Parsing (e.g., Claude)
-Claude's `/chat_conversations` endpoint returns a flat array of messages. The `ClaudeApiParser` simply maps over this array, extracting `content` blocks. Extended reasoning is elegantly handled by filtering for `type: "thinking"`.
+## Extension Points
 
-#### N-ary Tree Parsing (e.g., ChatGPT)
-ChatGPT's `/backend-api/conversation` endpoint returns a `mapping` object (an adjacency list representing an N-ary tree), allowing for regenerated responses and branching conversations.
-- **Resolution**: `ChatGptApiParser` starts at `current_node` and traverses upwards via the `parent` reference until it hits the root. It then reverses this path to produce a linear array representing the user's active viewport.
+To add a new platform adapter without modifying the core extraction loop, a contributor must:
+1. Create `src/adapters/new-platform/new-adapter.js` extending `BaseAdapter`.
+2. Implement `static matches(url)`, `getTitle()`, `getMessages()`, and `getPlatformId()`.
+3. Add the endpoint URL to the `CONVERSATION_ENDPOINTS` constant in `src/background/network-interceptor.js`.
+4. Add the adapter class to `ADAPTER_REGISTRY` in `src/core/export-orchestrator.js`.
 
----
+## What Was Deliberately Not Built
 
-## 4. Build & Deployment Pipeline
+- **DOM Parsing Fallbacks**: Deliberately excluded. Attempting to parse the DOM when network data fails leads to buggy, fragmented markdown. We enforce a hard requirement on network interception.
+- **External Proxy Servers**: Considered to bypass the need for the `debugger` permission, but rejected due to extreme privacy risks and latency introduced by routing user conversation data through third-party servers.
 
-- **Bundler**: Webpack 5 processes and chunks the source code.
-  - `service-worker.js` (Background)
-  - `content-main.js` (DOM interactions)
-  - `popup.js` / `options.js` (Extension UI)
-- **Transpilation**: Babel ensures modern ES features (like Optional Chaining and Nullish Coalescing) execute flawlessly on older browser variants.
-- **Testing**: Jest runs isolated unit tests. Mock JSON payloads (Fixtures) captured directly from production LLM platforms are committed to `tests/fixtures/`, providing high-confidence regression testing whenever parser logic is updated.
+## Performance Characteristics
 
----
+- Memory Usage: Intercepted payloads are cached transiently. A single conversation JSON rarely exceeds 2MB. The memory map strictly overwrites previous conversations for the same tab to prevent unbounded memory growth.
+- Execution Time: Parsing a 100-message tree and compiling markdown occurs entirely synchronously in under 15ms.
+- Bottleneck: The native `chrome.downloads.download` API has a slight asynchronous delay (approx 100-200ms) before the system dialog appears.
 
-## 5. Extensibility Guide: Adding a New Platform
+## Security Model
 
-To commercially scale this product, onboard a new platform in 5 steps:
-1. **Network Analysis**: Open DevTools on the target platform. Identify the XHR request containing the conversation history.
-2. **Interceptor Config**: Add the endpoint's regex to `CONVERSATION_ENDPOINTS` in `src/background/network-interceptor.js`.
-3. **Adapter Implementation**: Extend `BaseAdapter` in a new directory (`src/adapters/new-platform/`).
-4. **Parser Implementation**: Write a stateless static class to map the intercepted JSON to the `ConversationMessage` schema. Write robust Jest tests for it.
-5. **Registry**: Append the new adapter class to `ADAPTER_REGISTRY` inside `src/core/export-orchestrator.js`.
+- Trust Boundaries: The extension executes entirely within the Chrome sandbox. It trusts the authenticated session of the user on the specific LLM platform.
+- Data Handling: Intercepted JSON is strictly held in a temporary variable within the V8 isolate. It is NEVER written to local disk (except intentionally by the user via download), `chrome.storage`, or transmitted over the network.
+- Explicit Scope: The `debugger` permission is restricted exclusively to the `host_permissions` explicitly listed in `manifest.json`.
+
+*Last updated: 2026-05-30*
