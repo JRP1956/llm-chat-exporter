@@ -4,15 +4,9 @@ import { ExportOrchestrator } from '../core/export-orchestrator.js';
 let currentUrl = window.location.href;
 let orchestrator = null;
 
-// ── Request page-context hook from service worker to bypass CSP ──
-function requestPageHook() {
-  chrome.runtime.sendMessage({ type: 'INJECT_FETCH_HOOK' });
-}
-
 function initialize() {
   try {
     orchestrator = new ExportOrchestrator();
-    requestPageHook();
 
     // Check if network data is already available from background
     chrome.runtime.sendMessage(
