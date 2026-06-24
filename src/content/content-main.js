@@ -18,22 +18,53 @@ function initialize() {
       }
     );
 
-    const mountPointSelector = orchestrator.adapter.getButtonMountPointSelector();
-    const mountPoint = document.querySelector(mountPointSelector);
-    if (mountPoint) {
+    function tryInject() {
+      if (document.getElementById('llm-exporter-btn')) return true;
+
+      const primary = orchestrator.adapter.getButtonMountPointSelector();
+      let mountPoint = document.querySelector(primary);
+      let usedSelector = primary;
+
+      if (!mountPoint) {
+        const fallbacks = [
+          'header > div:last-child',
+          'header > nav',
+          'header div:last-child',
+          'header nav:last-child',
+          'header',
+          'nav:first-of-type > div:last-child',
+        ];
+        for (const sel of fallbacks) {
+          mountPoint = document.querySelector(sel);
+          if (mountPoint) {
+            usedSelector = sel;
+            break;
+          }
+        }
+      }
+
+      if (!mountPoint) {
+        const container = document.createElement('div');
+        container.id = 'llm-exporter-container';
+        container.style.cssText =
+          'position:fixed;top:12px;right:12px;z-index:9999;display:flex;align-items:center;gap:8px;';
+        document.body.appendChild(container);
+        mountPoint = container;
+        usedSelector = '#llm-exporter-container';
+      }
+
       const btn = new ExportButton(orchestrator, orchestrator.adapter.getPlatformId());
       btn.inject(mountPoint);
-      btn.watchForRemoval(mountPointSelector);
-    } else {
-      // Retry in case DOM is not fully rendered yet
-      setTimeout(() => {
-        const deferredMountPoint = document.querySelector(mountPointSelector);
-        if (deferredMountPoint) {
-          const btn = new ExportButton(orchestrator, orchestrator.adapter.getPlatformId());
-          btn.inject(deferredMountPoint);
-          btn.watchForRemoval(mountPointSelector);
-        }
-      }, 2000);
+      btn.watchForRemoval(() => tryInject());
+      return true;
+    }
+
+    if (!tryInject()) {
+      const observer = new MutationObserver(() => {
+        if (tryInject()) observer.disconnect();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 30000);
     }
   } catch (err) {
     console.debug('[LLM Exporter] Initialization skipped:', err.message);

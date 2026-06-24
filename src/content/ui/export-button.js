@@ -30,11 +30,15 @@ export class ExportButton {
   }
 
   // Re-inject if React/Angular re-renders wipe the button
-  watchForRemoval(mountPointSelector) {
+  watchForRemoval(reinject) {
     const observer = new MutationObserver(() => {
       if (!document.getElementById('llm-exporter-btn')) {
-        const mountPoint = document.querySelector(mountPointSelector);
-        if (mountPoint) this.inject(mountPoint);
+        if (typeof reinject === 'function') {
+          reinject();
+        } else if (typeof reinject === 'string') {
+          const mountPoint = document.querySelector(reinject);
+          if (mountPoint) this.inject(mountPoint);
+        }
       }
     });
 

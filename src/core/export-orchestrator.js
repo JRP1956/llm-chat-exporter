@@ -32,6 +32,19 @@ export class ExportOrchestrator {
     }
   }
 
+  async _waitForData(timeout = 15000) {
+    if (this.networkData || this.adapter.networkData) return;
+    return new Promise((resolve, reject) => {
+      const deadline = Date.now() + timeout;
+      const poll = () => {
+        if (this.networkData || this.adapter.networkData) return resolve();
+        if (Date.now() >= deadline) return reject(new Error('Network data not captured. Please reload the page.'));
+        setTimeout(poll, 500);
+      };
+      poll();
+    });
+  }
+
   async export() {
     try {
       const options = await Storage.getAll();
@@ -42,6 +55,10 @@ export class ExportOrchestrator {
       }
 
       this.toast.show('Preparing export...');
+      await this._waitForData();
+
+      const data = this.networkData || this.adapter.networkData;
+      console.log('[LLM Exporter] Network data keys:', data ? Object.keys(data) : 'null');
 
       // Step 1: Get title
       this.toast.update('Fetching conversation title...');
