@@ -10,6 +10,7 @@ const CONVERSATION_ENDPOINTS = {
 export class NetworkInterceptor {
   constructor() {
     this.capturedData = new Map();
+    this._onEvent = this._onEvent.bind(this);
   }
 
   attach(tabId) {
@@ -17,12 +18,14 @@ export class NetworkInterceptor {
       chrome.debugger.sendCommand({ tabId }, 'Network.enable');
     });
 
-    chrome.debugger.onEvent.addListener((source, method, params) => {
-      if (source.tabId !== tabId) return;
-      if (method === 'Network.responseReceived') {
-        this._handleResponse(tabId, params);
-      }
-    });
+    chrome.debugger.onEvent.removeListener(this._onEvent);
+    chrome.debugger.onEvent.addListener(this._onEvent);
+  }
+
+  _onEvent(source, method, params) {
+    if (method !== 'Network.responseReceived') return;
+    if (!source?.tabId) return;
+    this._handleResponse(source.tabId, params);
   }
 
   async _handleResponse(tabId, params) {

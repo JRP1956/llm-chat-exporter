@@ -27,7 +27,7 @@ export class MarkdownBuilder {
       lines.push(...this._renderMessage(message, { includeThinking, includeTimestamps }));
     }
 
-    return lines.join('\\n');
+    return lines.join('\n');
   }
 
   static _renderMessage(message, options) {
