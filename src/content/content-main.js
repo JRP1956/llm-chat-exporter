@@ -4,65 +4,15 @@ import { ExportOrchestrator } from '../core/export-orchestrator.js';
 let currentUrl = window.location.href;
 let orchestrator = null;
 
-// ── Page-context hook to intercept fetch / XHR responses ──────────
-function injectPageHook() {
-  if (document.getElementById('__llm_exporter_hook')) return;
-
-  const script = document.createElement('script');
-  script.id = '__llm_exporter_hook';
-  script.textContent = `
-    (function() {
-      if (window.__llmExporterInjected) return;
-      window.__llmExporterInjected = true;
-
-      var patterns = [
-        /backend-api\\/conversation\\/[^\\/]+$/,
-        /api\\/organizations\\/[^\\/]+\\/chat_conversations\\/[^\\/]+$/,
-        /api\\/chat_conversations\\/[^\\/]+/,
-      ];
-
-      var dispatchData = function(url, data) {
-        window.dispatchEvent(new CustomEvent('__LLM_EXPORTER_DATA', { detail: { url: url, data: data } }));
-      };
-
-      var origFetch = window.fetch;
-      window.fetch = async function() {
-        var args = arguments;
-        var response = await origFetch.apply(this, args);
-        var url = typeof args[0] === 'string' ? args[0] : args[0] && args[0].url ? args[0].url : '';
-        if (patterns.some(function(p) { return p.test(url); })) {
-          response.clone().text().then(function(body) {
-            try { dispatchData(url, JSON.parse(body)); } catch(e) {}
-          });
-        }
-        return response;
-      };
-
-      var origOpen = XMLHttpRequest.prototype.open;
-      var origSend = XMLHttpRequest.prototype.send;
-      XMLHttpRequest.prototype.open = function(method, url) {
-        this.__llmUrl = typeof url === 'string' ? url : '';
-        return origOpen.apply(this, arguments);
-      };
-      XMLHttpRequest.prototype.send = function() {
-        var self = this;
-        if (self.__llmUrl && patterns.some(function(p) { return p.test(self.__llmUrl); })) {
-          self.addEventListener('load', function() {
-            try { dispatchData(self.__llmUrl, JSON.parse(self.responseText)); } catch(e) {}
-          });
-        }
-        return origSend.apply(this, arguments);
-      };
-    })();
-  `;
-  document.documentElement.appendChild(script);
-  script.remove();
+// ── Request page-context hook from service worker to bypass CSP ──
+function requestPageHook() {
+  chrome.runtime.sendMessage({ type: 'INJECT_FETCH_HOOK' });
 }
 
 function initialize() {
   try {
     orchestrator = new ExportOrchestrator();
-    injectPageHook();
+    requestPageHook();
 
     // Check if network data is already available from background
     chrome.runtime.sendMessage(

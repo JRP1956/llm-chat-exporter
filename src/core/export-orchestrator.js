@@ -25,7 +25,13 @@ export class ExportOrchestrator {
     return new AdapterClass();
   }
 
+  _hasData() {
+    const d = this.networkData || this.adapter.networkData;
+    return d && typeof d === 'object' && Object.keys(d).length > 0;
+  }
+
   ingestNetworkData(data) {
+    if (!data || typeof data !== 'object' || Object.keys(data).length === 0) return;
     this.networkData = data;
     if (this.adapter.ingestNetworkData) {
       this.adapter.ingestNetworkData(data);
@@ -33,11 +39,11 @@ export class ExportOrchestrator {
   }
 
   async _waitForData(timeout = 15000) {
-    if (this.networkData || this.adapter.networkData) return;
+    if (this._hasData()) return;
     return new Promise((resolve, reject) => {
       const deadline = Date.now() + timeout;
       const poll = () => {
-        if (this.networkData || this.adapter.networkData) return resolve();
+        if (this._hasData()) return resolve();
         if (Date.now() >= deadline) return reject(new Error('Network data not captured. Please reload the page.'));
         setTimeout(poll, 500);
       };

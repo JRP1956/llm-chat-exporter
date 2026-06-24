@@ -40,12 +40,15 @@ export class NetworkInterceptor {
         { requestId: params.requestId }
       );
 
-      this.capturedData.set(`${tabId}:${platform}`, JSON.parse(body));
+      const data = JSON.parse(body);
+      if (!data || typeof data !== 'object' || Object.keys(data).length === 0) return;
+
+      this.capturedData.set(`${tabId}:${platform}`, data);
 
       chrome.tabs.sendMessage(tabId, {
         type: 'NETWORK_DATA_CAPTURED',
         platform,
-        data: JSON.parse(body),
+        data,
       });
     } catch (e) {
       console.error('Failed to capture network response body', e);
