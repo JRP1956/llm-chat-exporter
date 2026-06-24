@@ -1,10 +1,38 @@
 import { ExportButton } from './ui/export-button.js';
 import { ExportOrchestrator } from '../core/export-orchestrator.js';
 
+// ── Inject fetch hook into page context (runs before page scripts) ──
+const hookScript = document.createElement('script');
+hookScript.src = chrome.runtime.getURL('content/fetch-hook.js');
+document.documentElement.appendChild(hookScript);
+hookScript.remove();
+
 let currentUrl = window.location.href;
 let orchestrator = null;
 
-function initialize() {
+// Listen for data from page-context hook
+window.addEventListener('__LLM_EXPORTER_DATA', (event) => {
+  if (orchestrator) {
+    console.log('[LLM Exporter] Page hook captured data for:', event.detail.url);
+    orchestrator.ingestNetworkData(event.detail.data);
+  }
+});
+
+// Listen for messages from background or popup script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'NETWORK_DATA_CAPTURED' && orchestrator) {
+    if (orchestrator.adapter.getPlatformId() === message.platform) {
+      orchestrator.ingestNetworkData(message.data);
+    }
+  } else if (message.type === 'TRIGGER_EXPORT' && orchestrator) {
+    orchestrator.export();
+    sendResponse({ success: true });
+  }
+});
+
+// ── UI initialization (deferred until DOM is ready) ──
+
+function initializeUI() {
   try {
     orchestrator = new ExportOrchestrator();
 
@@ -66,26 +94,6 @@ function initialize() {
   }
 }
 
-// Listen for data from page-context hook
-window.addEventListener('__LLM_EXPORTER_DATA', (event) => {
-  if (orchestrator) {
-    console.log('[LLM Exporter] Page hook captured data for:', event.detail.url);
-    orchestrator.ingestNetworkData(event.detail.data);
-  }
-});
-
-// Listen for messages from background or popup script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'NETWORK_DATA_CAPTURED' && orchestrator) {
-    if (orchestrator.adapter.getPlatformId() === message.platform) {
-      orchestrator.ingestNetworkData(message.data);
-    }
-  } else if (message.type === 'TRIGGER_EXPORT' && orchestrator) {
-    orchestrator.export();
-    sendResponse({ success: true });
-  }
-});
-
 // Detect SPA navigation via History API patching
 const originalPushState = history.pushState.bind(history);
 history.pushState = function (...args) {
@@ -105,9 +113,13 @@ function handleNavigation() {
   const newUrl = window.location.href;
   if (newUrl !== currentUrl) {
     currentUrl = newUrl;
-    setTimeout(initialize, 800);
+    setTimeout(initializeUI, 800);
   }
 }
 
-// Initial load
-setTimeout(initialize, 1000);
+// Wait for DOM before initializing UI
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(initializeUI, 1000));
+} else {
+  setTimeout(initializeUI, 1000);
+}

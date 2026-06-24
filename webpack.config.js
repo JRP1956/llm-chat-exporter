@@ -40,6 +40,7 @@ module.exports = {
         { from: 'src/options/options.html',   to: 'options/' },
         { from: 'assets/',                    to: 'assets/' },
         { from: 'src/content/ui/styles.css',  to: 'content/ui/' },
+        { from: 'src/content/fetch-hook.js',  to: 'content/fetch-hook.js' },
       ],
     }),
   ],

@@ -24,6 +24,18 @@
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
+  "web_accessible_resources": [{
+    "resources": ["content/fetch-hook.js"],
+    "matches": [
+      "https://claude.ai/*",
+      "https://chatgpt.com/*",
+      "https://gemini.google.com/*",
+      "https://chat.deepseek.com/*",
+      "https://grok.com/*",
+      "https://copilot.microsoft.com/*",
+      "https://www.perplexity.ai/*"
+    ]
+  }],
   "content_scripts": [
     {
       "matches": [
@@ -37,7 +49,7 @@
       ],
       "js": ["content/content-main.js"],
       "css": ["content/ui/styles.css"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ],
   "action": {
